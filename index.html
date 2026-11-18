@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="ky"><head><meta charset="utf-8"><title>CHEMISTRY LAB: ALKADIENES</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#02080a;font-family:system-ui,Segoe UI,sans-serif;color:#d8fff0;touch-action:none}
+canvas{display:block;position:fixed;inset:0}
+#ui{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:44px 8px 8px}
+#ui.b{align-items:flex-end}#ui>*{pointer-events:auto}
+.c{text-align:center;display:flex;flex-direction:column;gap:10px;min-width:min(340px,90vw)}
+h1{font-size:clamp(28px,7vw,60px);margin:0 0 12px;letter-spacing:3px;color:#3dffa8;text-shadow:0 0 20px #0f8}h1 span{color:#22e5ff;text-shadow:0 0 20px #0ef}
+h2,h3{margin:2px 0;color:#3dffa8}
+button{background:rgba(0,40,30,.85);color:#aaffdd;border:1px solid #1fe39a;padding:12px 18px;border-radius:10px;font-size:16px;cursor:pointer;box-shadow:0 0 12px #0f84;transition:.15s;font-family:inherit}
+button:hover:not(:disabled){background:#0b6;color:#001;box-shadow:0 0 22px #0f8}button:disabled{opacity:.4;cursor:not-allowed}
+.pn{background:rgba(2,16,14,.9);border:1px solid #1fe39a;border-radius:14px;padding:16px;max-width:660px;width:100%;max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(6px);line-height:1.45}
+.b .pn{max-height:42vh}.ok{background:#0a7a45!important;color:#fff}.bad{background:#8a1030!important;color:#fff}
+.tp{display:flex;justify-content:space-between;color:#22e5ff;font-size:14px}.f{font-size:22px;color:#fff;text-align:center;letter-spacing:1px}
+#hud{position:fixed;top:0;left:0;right:0;display:none;gap:8px;padding:6px 8px;align-items:center;font-size:14px;background:linear-gradient(#000a,#0000);pointer-events:none}#hud>*{pointer-events:auto}#hud button{padding:5px 11px;font-size:15px}
+#pad{position:fixed;left:10px;bottom:10px;display:none;grid-template-columns:repeat(3,48px);gap:4px}#pad button{padding:0;height:48px;font-size:18px}
+#near{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);display:none}
+#toast{position:fixed;top:50px;left:50%;transform:translateX(-50%);background:#0b6;color:#001;padding:10px 18px;border-radius:20px;font-weight:700;display:none;z-index:9}
+input[type=range]{width:100%}
+</style></head><body>
+<div id="ui"></div><div id="hud"></div>
+<div id="pad"><i></i><button data-k="w">▲</button><i></i><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button></div>
+<button id="near"></button><div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),ui=$('#ui'),T=t=>ui.innerHTML=t,bot=b=>ui.classList.toggle('b',!!b);
+let S={xp:0,lv:0,a:{},bt:{},sm:{},rm:0,mv:.6,sv:.8,best:0,perf:0};
+try{Object.assign(S,JSON.parse(localStorage.getItem('chemlab')||'{}'))}catch(e){}
+const sv=()=>{try{localStorage.setItem('chemlab',JSON.stringify(S))}catch(e){}};
+let mode='menu',paused=false,cur=null,qt,QS={};
+/* ---------- AUDIO ---------- */
+let AU,mg,sg;
+function ainit(){if(AU)return;try{AU=new(window.AudioContext||window.webkitAudioContext)();mg=AU.createGain();sg=AU.createGain();mg.connect(AU.destination);sg.connect(AU.destination);setV();const n=[0,3,7,10,12,10,7,3];let i=0;setInterval(()=>{if(!paused)beep(110*Math.pow(2,(n[i%8]+((i>>3)&1)*5)/12)*2,.45,'triangle',mg);i++},420)}catch(e){}}
+function setV(){if(AU){mg.gain.value=S.mv*.12;sg.gain.value=S.sv*.35}}
+function beep(f,d=.15,t='sine',dst){if(!AU)return;const o=AU.createOscillator(),g=AU.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(1,AU.currentTime);g.gain.exponentialRampToValueAtTime(.001,AU.currentTime+d);o.connect(g);g.connect(dst||sg);o.start();o.stop(AU.currentTime+d)}
+const sfx=ok=>ok?(beep(660),setTimeout(()=>beep(990),90)):beep(170,.3,'sawtooth');
+addEventListener('pointerdown',ainit);
+/* ---------- DATA ---------- */
+const Q=[
+["Ациклдүү алкадиендердин жалпы формуласы кайсы?",["CₙH₂ₙ₊₂","CₙH₂ₙ","CₙH₂ₙ₋₂","CₙH₂ₙ₋₆"],2,"Эки кош байланышы бар ациклдүү углеводороддор CₙH₂ₙ₋₂ формуласына баш ийет."],
+["Алкадиендин молекуласында канча кош байланыш бар?",["1","2","3","4"],1,"«Диен» — эки кош байланыш дегенди билдирет."],
+["Бутадиен-1,3төн молекулалык формуласы кайсы?",["C₄H₈","C₄H₁₀","C₄H₆","C₅H₈"],2,"n=4 болгондо 2n−2=6, демек C₄H₆."],
+["Изопрендин молекулалык формуласы?",["C₅H₁₀","C₅H₁₂","C₅H₈","C₄H₆"],2,"n=5: H саны 2·5−2=8, демек C₅H₈."],
+["Эң жөнөкөй алкадиен кайсы?",["Пропадиен (аллен)","Бутадиен-1,3","Изопрен","Пентадиен-1,4"],0,"Пропадиен CH₂=C=CH₂ (C₃H₄) — эки кош байланыш үчүн кеминде 3 көмүртек керек."],
+["CH₂=CH–CH=CH₂ кайсы типтеги алкадиен?",["Кумуляцияланган","Изоляцияланган (обочолонгон)","Конъюгацияланган (түйүндөш)","Циклдик"],2,"Кош байланыштар бир жөнөкөй байланыш менен бөлүнгөн — конъюгацияланган."],
+["CH₂=C=CH₂ кайсы типке кирет?",["Конъюгацияланган","Кумуляцияланган","Изоляцияланган","Каныккан"],1,"Эки кош байланыш бир көмүртектен чыгат (C=C=C) — кумуляцияланган."],
+["CH₂=CH–CH₂–CH=CH₂ (пентадиен-1,4) кайсы типте?",["Конъюгацияланган","Кумуляцияланган","Изоляцияланган","Ароматтык"],2,"Кош байланыштар бир нече жөнөкөй байланыш менен бөлүнгөн — изоляцияланган."],
+["Изопрендин систематикалык аталышы?",["3-метилбутадиен-1,2","2-метилбутен-1","2-метилбутадиен-1,3","2-метилпентадиен-1,3"],2,"Бутадиен-1,3түн экинчи көмүртегинде –CH₃ радикалы бар."],
+["Бутадиен-1,3төгү көмүртек атомдорунун гибридизациясы?",["sp³","sp","sp²","sp³d"],2,"Төрт көмүртектин баары кош байланыштарга катышат — sp²-гибриддик абалда."],
+["Бутадиен-1,3кө 1 моль H₂ 1,4-абалда кошулса эмне пайда болот?",["Бутан","Бутен-1","Бутин-2","Бутен-2"],3,"CH₂=CH–CH=CH₂ + H₂ → CH₃–CH=CH–CH₃ (кош байланыш ортого жылат)."],
+["Бутадиен-1,3 толук гидрленгенде эмне алынат?",["Бутен-2","Бутан","Пропан","Бутин"],1,"Эки моль H₂ кошулуп, каныккан бутан C₄H₁₀ түзүлөт."],
+["Каучук алуунун негизги реакциясы кайсы?",["Полимерлешүү","Крекинг","Нейтралдашуу","Дегидратация"],0,"nCH₂=CH–CH=CH₂ → (–CH₂–CH=CH–CH₂–)ₙ — полимерлешүү."],
+["Лебедев ыкмасында бутадиен-1,3 эмнеден алынат?",["Метандан","Бензолдон","Этанолдон","Хлорметандан"],2,"2C₂H₅OH → CH₂=CH–CH=CH₂ + 2H₂O + H₂ (катализатор катышат)."],
+["Табигый каучуктун мономери кайсы?",["Бутадиен-1,3","Изопрен","Пропадиен","Этилен"],1,"Табигый каучук — изопреннин (cis-1,4) полимери."],
+["Вулканизация деген эмне?",["Каучукту суу менен жуу","Каучукту муздатуу","Каучукту күкүрт менен ысытып, тигилген резина алуу","Каучукту жарык менен ажыратуу"],2,"Күкүрт көпүрөчөлөрү полимер чынжырларын байланыштырып, резинаны бышык жана ийкемдүү кылат."],
+["Төмөнкүлөрдүн кайсынысы C₅H₈ формуласына туура келет?",["Бутадиен-1,3","Пентадиен-1,3","Пропадиен","Гексадиен-1,3"],1,"Пентадиен: n=5, C₅H₈. Гексадиен C₆H₁₀ болмок."],
+["Бутадиен-1,3төн түзүлүш формуласы кайсы?",["CH₂=C=CH–CH₃","CH₃–CH=CH–CH₃","CH₂=CH–CH₂–CH₃","CH₂=CH–CH=CH₂"],3,"C1=C2 жана C3=C4 кош байланыштары C2–C3 жөнөкөй байланыш менен бөлүнгөн."],
+["Бутадиен-1,2нин түзүлүш формуласы кайсы?",["CH₂=C=CH–CH₃","CH₂=CH–CH=CH₂","CH₃–C≡C–CH₃","CH₂=CH–CH₂–CH₃"],0,"Кош байланыштар C1=C2 жана C2=C3 — кумуляцияланган система."],
+["C₆ алкадиенинде канча суутек атому бар?",["8","10","12","14"],1,"2n−2 = 2·6−2 = 10, демек C₆H₁₀."]];
+const CH=[
+["Формулаларды аныктоо",[["Көмүртеги 7 болгон алкадиендин формуласы?",["C₇H₁₄","C₇H₁₂","C₇H₁₀","C₇H₁₆"],1,"2·7−2=12 → C₇H₁₂."],["C₅ алкадиенинде суутек атомдорунун саны?",["6","10","8","12"],2,"2·5−2=8 → C₅H₈."]]],
+["Алкадиен түрүн таануу",[["CH₂=CH–CH₂–CH₂–CH=CH₂ кайсы түр?",["Изоляцияланган","Конъюгацияланган","Кумуляцияланган","Каныккан"],0,"Кош байланыштарды эки жөнөкөй байланыш бөлүп турат."],["CH₂=C=CH–CH₂–CH₃ кайсы түр?",["Конъюгацияланган","Изоляцияланган","Кумуляцияланган","Алкин"],2,"C=C=C бөлүгү бар — кумуляцияланган (пентадиен-1,2)."]]],
+["Түзүлүштү аталышы менен байланыштыр",[["CH₂=C(CH₃)–CH=CH₂ — бул?",["Бутадиен-1,2","Изопрен","Пентадиен-1,4","Пропадиен"],1,"2-метилбутадиен-1,3 — изопрен."],["CH₂=C=CH–CH₃ — бул?",["Бутадиен-1,3","Изопрен","Бутадиен-1,2","Бутен-2"],2,"Кош байланыштар C1=C2=C3 — бутадиен-1,2."]]],
+["Формуланын жетишпеген бөлүгүн толуктоо",[["CH₂=CH–__=CH₂ (бутадиен-1,3). Орунга эмне керек?",["CH₂","CH","C","CH₃"],1,"CH₂=CH–CH=CH₂: ар бир ортоңку көмүртек 1 суутек сактайт."],["CH₂=__=CH₂ (пропадиен). Орунга эмне керек?",["CH","CH₂","C","CH₃"],2,"Борбордук көмүртектин суутеги жок: CH₂=C=CH₂."]]]];
+const LV=["Жаңы лаборант","Алкадиен деген эмне?","Формулалар","Алкадиен түрлөрү","Аталыштар","Гибридизация","Кошулуу реакциялары","Полимерлешүү","Каучук жана резина","Эксперт-химик"];
+const RM=[["Негизги лаборатория",0,0x00ff88,0x00e5ff],["Полимер бөлмөсү",3,0x66ff33,0xff44cc],["Каучук цехи",6,0xffaa33,0x33ffcc],["Кванттык лаборатория",10,0xaa66ff,0x00e5ff]];
+const ACH=[['🧪','Биринчи кадам','1-деңгээлди өттүң',()=>S.lv>=1],['⚛️','Молекула куруучу','3 молекуланы тура курдуң',()=>Object.keys(S.bt).length>=3],['🏅','Так 20/20','Викторинаны катасыз бүттүң',()=>S.perf],['🔬','Виртуалдык лаборант','3 симуляцияны көрдүң',()=>Object.keys(S.sm).length>=3],['⭐','Жарым жол','5 деңгээл өттүң',()=>S.lv>=5],['🏆','Эксперт-химик','10 деңгээлдин баарын өттүң',()=>S.lv>=10],['💎','500 XP','500 тажрыйба упайы',()=>S.xp>=500]];
+const zig=(n,s=1.5)=>Array.from({length:n},(_,i)=>[(i-(n-1)/2)*s,(i%2)*.9-.45,0]);
+const MB=[
+{n:'Бутадиен-1,3',P:zig(4),b:[[0,1],[1,2],[2,3]],t:[2,1,2],f:'CH₂=CH–CH=CH₂',e:'Эки кош байланыш бир жөнөкөй байланыш менен бөлүнгөн (C1=C2–C3=C4) — конъюгацияланган диен. Бардык көмүртек 4 байланыш түзөт: ички көмүртектер 1 H, четкилери 2 H алат. Формула: C₄H₆ (CₙH₂ₙ₋₂, n=4).'},
+{n:'Изопрен (2-метилбутадиен-1,3)',P:[...zig(4),[-.75,1.95,0]],b:[[0,1],[1,2],[2,3],[1,4]],t:[2,1,2,1],f:'CH₂=C(CH₃)–CH=CH₂',e:'Бутадиен-1,3төн айырмасы: 2-көмүртекте метил радикалы (–CH₃) бар. Конъюгацияланган система, формуласы C₅H₈. Табигый каучуктун мономери.'},
+{n:'Бутадиен-1,2',P:zig(4),b:[[0,1],[1,2],[2,3]],t:[2,2,1],f:'CH₂=C=CH–CH₃',e:'Эки кош байланыш бир көмүртектен (C2) чыгат: C1=C2=C3 — кумуляцияланган диен. Борбордук көмүртек суутек албайт. Формуласы C₄H₆.'}];
+/* ---------- THREE ---------- */
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.shadowMap.enabled=true;document.body.prepend(R.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x02080a);sc.fog=new THREE.Fog(0x02080a,14,38);
+const cam=new THREE.PerspectiveCamera(65,1,.1,70);
+const L1=new THREE.PointLight(0x00ff88,1.3,32),L2=new THREE.PointLight(0x00e5ff,1.3,32),DL=new THREE.DirectionalLight(0xffffff,.5);
+L1.position.set(-6,5,0);L2.position.set(6,5,-4);DL.position.set(3,9,4);DL.castShadow=true;DL.shadow.mapSize.set(1024,1024);Object.assign(DL.shadow.camera,{left:-15,right:15,top:15,bottom:-15});
+sc.add(L1,L2,DL,new THREE.AmbientLight(0x22443a,.9));
+const fl=new THREE.Mesh(new THREE.PlaneGeometry(28,28),new THREE.MeshStandardMaterial({color:0x06120f,metalness:.8,roughness:.35}));fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;sc.add(fl);
+sc.add(new THREE.GridHelper(28,28,0x00ff88,0x0a3a2a));
+sc.add(new THREE.Mesh(new THREE.BoxGeometry(28,9,28),new THREE.MeshStandardMaterial({color:0x04110e,side:THREE.BackSide})));
+const glass=new THREE.MeshPhysicalMaterial({color:0x99ffee,transparent:true,opacity:.3,roughness:.05,metalness:.1}),liqs=[];
+const fp=[[0,0],[.7,0],[.9,.15],[.25,1.2],[.25,1.6],[.32,1.65]].map(p=>new THREE.Vector2(p[0],p[1]));
+function flask(x,y,z,c){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.LatheGeometry(fp,20),glass);m.castShadow=true;const l=new THREE.Mesh(new THREE.LatheGeometry(fp.slice(0,3).concat([new THREE.Vector2(.55,.55),new THREE.Vector2(0,.55)]),16),new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.8}));l.scale.set(.9,1,.9);g.add(m,l);g.position.set(x,y,z);sc.add(g);liqs.push(l)}
+function tube(x,y,z,c){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,1.1,12),glass),l=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.6,12),new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.9}));l.position.y=-.2;g.add(m,l);g.position.set(x,y+.55,z);sc.add(g);liqs.push(l)}
+const bm=new THREE.MeshStandardMaterial({color:0x0b2a22,metalness:.6,roughness:.4,emissive:0x021a12});
+[-7,7].forEach(x=>{const b=new THREE.Mesh(new THREE.BoxGeometry(7,1,1.6),bm);b.position.set(x,.5,-12);b.castShadow=b.receiveShadow=true;sc.add(b);
+for(let i=0;i<3;i++)flask(x-2.5+i*1.1,1,-12,[0x00ff88,0x00e5ff,0xffee33][i]);for(let i=0;i<5;i++)tube(x+.5+i*.45,1,-12,[0xff44aa,0x33ff99,0x44aaff][i%3])});
+const lbl=t=>{const c=document.createElement('canvas');c.width=512;c.height=96;const x=c.getContext('2d');x.font='bold 40px sans-serif';x.fillStyle='#3dffa8';x.textAlign='center';x.fillText(t,256,60);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));s.scale.set(4,.75,1);return s};
+const ST=[[-6,-5,'МОЛЕКУЛА КУРУУЧУ',()=>builder(0)],[6,-5,'ВИКТОРИНА',()=>quiz()],[-6,5,'ТАПШЫРМАЛАР',()=>chal()],[6,5,'ВИРТУАЛДЫК ЛАБ',()=>vlab()]],rings=[];
+ST.forEach(s=>{const p=new THREE.Mesh(new THREE.CylinderGeometry(1,1,.1,32),new THREE.MeshStandardMaterial({color:0x003322,emissive:0x00ff88,emissiveIntensity:.6}));p.position.set(s[0],.05,s[1]);const r=new THREE.Mesh(new THREE.TorusGeometry(1.2,.04,8,40),new THREE.MeshBasicMaterial({color:0x00e5ff}));r.rotation.x=Math.PI/2;r.position.set(s[0],.3,s[1]);const l=lbl(s[2]);l.position.set(s[0],2.4,s[1]);sc.add(p,r,l);rings.push(r)});
+const MG=new THREE.Group();MG.position.set(0,2.2,0);sc.add(MG);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(3.4,.03,8,80),new THREE.MeshBasicMaterial({color:0x00e5ff}));ring.position.set(0,2.2,0);sc.add(ring);
+/* molecules */
+const SG=new THREE.SphereGeometry(1,20,14),Y=new THREE.Vector3(0,1,0),Zv=new THREE.Vector3(0,0,1);
+const mC=new THREE.MeshStandardMaterial({color:0x151c1a,emissive:0x00ffd0,emissiveIntensity:.3,metalness:.6,roughness:.3}),mH=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0x335555,roughness:.4}),mR=new THREE.MeshStandardMaterial({color:0xff2255,emissive:0xff0033,emissiveIntensity:.6}),mS=new THREE.MeshStandardMaterial({color:0xffe033,emissive:0xaa8800,emissiveIntensity:.5});
+const bc=[0,0x7fffd4,0x22e5ff,0xff66ff].map(c=>new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.35}));
+function cyl(a,b,r,m){const d=b.clone().sub(a),l=d.length(),g=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,8),m);g.position.copy(a).add(b).multiplyScalar(.5);g.quaternion.setFromUnitVectors(Y,d.normalize());return g}
+function ball(p,r,m){const s=new THREE.Mesh(SG,m);s.scale.setScalar(r);s.position.copy(p);return s}
+function mol(P,B,pick,ex={}){const g=new THREE.Group(),V=P.map(p=>new THREE.Vector3(...p)),val=P.map((_,i)=>ex[i]||0),nb=P.map(()=>new THREE.Vector3());let H=0,bad=0;
+B.forEach(([i,j,o],k)=>{val[i]+=o;val[j]+=o;nb[i].add(V[j].clone().sub(V[i]).normalize());nb[j].add(V[i].clone().sub(V[j]).normalize());
+for(let q=0;q<o;q++){const s=Zv.clone().multiplyScalar((q-(o-1)/2)*.24);g.add(cyl(V[i].clone().add(s),V[j].clone().add(s),.07,bc[o]))}
+if(pick){const f=cyl(V[i],V[j],.28,new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));f.userData.k=k;g.add(f)}});
+V.forEach((v,i)=>{const fr=4-val[i];if(fr<0)bad=1;g.add(ball(v,.34,fr<0?mR:mC));const aw=nb[i].clone().negate();if(aw.length()<.01)aw.set(0,1,0);aw.normalize();const pp=new THREE.Vector3(-aw.y,aw.x,0);
+for(let h=0;h<Math.max(fr,0);h++){H++;const an=2*Math.PI*h/fr+.5,d=fr==1?aw.clone():aw.clone().multiplyScalar(.55).add(pp.clone().multiplyScalar(Math.cos(an)*.8)).add(Zv.clone().multiplyScalar(Math.sin(an)*.8)).normalize(),hp=v.clone().add(d);g.add(ball(hp,.19,mH),cyl(v,hp,.04,mH))}});
+g.userData={H,C:P.length,bad};return g}
+const setMol=g=>{while(MG.children.length)MG.remove(MG.children[0]);MG.add(g)};
+/* tween */
+const tws=[];const tw=(v,to,d)=>new Promise(r=>tws.push({v,a:v.clone(),to,t:0,d,r}));const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* ---------- UI helpers ---------- */
+const lvlXP=()=>Math.floor(S.xp/100)+1;
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',3000)}
+function chk(){ACH.forEach((a,i)=>{if(!S.a[i]&&a[3]()){S.a[i]=1;toast(a[0]+' '+a[1]);sfx(1)}})}
+function gain(x){S.xp+=x;chk();sv();hud()}
+function hud(){const h=$('#hud');h.style.display=mode=='menu'?'none':'flex';h.innerHTML=`<b>⚗ XP ${S.xp} · ${lvlXP()}-деңгээл</b><span style="flex:1"></span><button onclick="pause()">${paused?'▶':'⏸'}</button><button onclick="cur&&cur()">⟲</button><button onclick="menu()">☰</button>`}
+function pause(){paused=!paused;hud();if(paused)T(`<div class=c><h1><span>ТОКТОТУЛДУ</span></h1><button onclick=pause();restore()>УЛАНТУУ</button><button onclick=menu()>БАШКЫ МЕНЮ</button></div>`);else restore()}
+let lastUI='';function restore(){paused=false;hud();if(lastUI)T(lastUI)}
+const P=h=>{lastUI=h;T(h)};
+function clr(){clearInterval(qt);$('#near').style.display='none';$('#pad').style.display='none';MG.rotation.set(0,0,0);MG.scale.setScalar(1);tws.length=0}
+function menu(){clr();mode='menu';paused=false;cur=null;bot(0);setMol(mol(zig(4),[[0,1,2],[1,2,1],[2,3,2]]));P(`<div class=c><h1>CHEMISTRY LAB<br><span>ALKADIENES</span></h1><button onclick=hub()>ОЙНООНУ БАШТОО</button><button onclick=levels()>ДЕҢГЭЭЛДЕР</button><button onclick=know()>БИЛИМДЕР</button><button onclick=achv()>ЖЕТИШКЕНДИКТЕР</button><button onclick=sett()>ЖӨНДӨӨЛӨР</button></div>`);hud()}
+function sub(t,b){clr();mode='menu';bot(0);P(`<div class=pn>${t}<button onclick=${b||'menu()'}>← АРТКА</button></div>`);hud()}
+function hub(){clr();mode='menu';bot(0);P(`<div class=pn><h2>ОЙНОО РЕЖИМДЕРИ</h2><button onclick=lab()>🚶 Лабораторияда сайрандоо (WASD / жебелер / чычкан)</button><button onclick=builder(0)>⚛️ МОЛЕКУЛА КУРУУЧУ</button><button onclick=quiz()>❓ ХИМИЯЛЫК ВИКТОРИНА (20 суроо)</button><button onclick=chal()>🧩 ХИМИЯЛЫК ТАПШЫРМАЛАР</button><button onclick=vlab()>🔬 ВИРТУАЛДЫК ЛАБОРАТОРИЯ</button><button onclick=menu()>← АРТКА</button></div>`);hud()}
+function know(){sub(`<h2>БИЛИМДЕР: АЛКАДИЕНДЕР</h2><p><b>Алкадиендер</b> — молекуласында эки кош байланышы бар каныкпаган углеводороддор. Ациклдүү алкадиендердин жалпы формуласы <b>CₙH₂ₙ₋₂</b> (n≥3).</p><p><b>Кумуляцияланган:</b> C=C=C (CH₂=C=CH₂, бутадиен-1,2).<br><b>Конъюгацияланган (түйүндөш):</b> C=C–C=C (бутадиен-1,3, изопрен).<br><b>Изоляцияланган (обочолонгон):</b> кош байланыштарды 2 жана андан көп жөнөкөй байланыш бөлөт (пентадиен-1,4).</p><p><b>Кошулуу:</b> конъюгацияланган диендер 1,2- жана 1,4-абалда кошот: CH₂=CH–CH=CH₂ + H₂ → CH₃–CH=CH–CH₃.</p><p><b>Полимерлешүү:</b> nCH₂=CH–CH=CH₂ → (–CH₂–CH=CH–CH₂–)ₙ — синтетикалык каучук. Табигый каучуктун мономери — изопрен.</p><p><b>Вулканизация:</b> каучук + күкүрт → тигилген резина.</p>`)}
+function achv(){sub(`<h2>ЖЕТИШКЕНДИКТЕР</h2>`+ACH.map((a,i)=>`<div style="opacity:${S.a[i]?1:.35}">${S.a[i]?a[0]:'🔒'} <b>${a[1]}</b> — ${a[2]}</div>`).join('')+`<div>Эң жакшы викторина упайы: <b>${S.best}</b> · Бүткөн деңгээлдер: <b>${S.lv}/10</b></div>`)}
+let rs=0;function sett(){sub(`<h2>ЖӨНДӨӨЛӨР</h2>🎵 Музыка<input type=range min=0 max=1 step=.05 value=${S.mv} oninput="S.mv=+this.value;setV();sv()">🔊 Үн эффекттери<input type=range min=0 max=1 step=.05 value=${S.sv} oninput="S.sv=+this.value;setV();sv()"><button onclick="beep(660)">Үндү текшерүү</button><button onclick="if(rs){S={xp:0,lv:0,a:{},bt:{},sm:{},rm:0,mv:S.mv,sv:S.sv,best:0,perf:0};sv();rs=0;room(0);sett()}else{rs=1;this.textContent='Чын эле өчүрөсүзбү? Дагы басыңыз'}">Прогрессти өчүрүү</button>`)}
+function room(n){if(S.lv<RM[n][1])return;S.rm=n;L1.color.setHex(RM[n][2]);L2.color.setHex(RM[n][3]);sv()}
+function levels(){sub(`<h2>ДЕҢГЭЭЛДЕР</h2>`+LV.map((n,i)=>`<button ${i>S.lv?'disabled':''} onclick=lvl(${i})>${i>S.lv?'🔒':i<S.lv?'✅':'▶'} ${i+1}. ${n}</button>`).join('')+`<h3>Лабораториялык бөлмөлөр</h3>`+RM.map((r,i)=>`<button ${S.lv<r[1]?'disabled':''} onclick="room(${i});levels()">${S.lv<r[1]?'🔒':S.rm==i?'📍':'🚪'} ${r[0]} (${r[1]}-деңгээлден)</button>`).join(''))}
+/* ---------- QUIZ ENGINE ---------- */
+function qStart(L,title,tl,done){clr();mode='quiz';bot(0);paused=false;QS={L,title,tl,done,i:0,r:0,sc:0,left:tl,ans:0};hud();qShow();qt=setInterval(()=>{if(paused||QS.ans||mode!='quiz')return;QS.left--;const e=$('#tm');if(e)e.textContent=QS.left;if(QS.left<=0)qPick(-1)},1000)}
+function qShow(){const q=QS.L[QS.i];QS.ans=0;QS.left=QS.tl;const o=q[1].map((t,k)=>[t,k==q[2]]).sort(()=>Math.random()-.5);
+P(`<div class=pn><div class=tp><span>${QS.title} · ${QS.i+1}/${QS.L.length}</span><span>⏱ <b id=tm>${QS.left}</b> с · ⭐ ${QS.sc}</span></div><h2>${q[0]}</h2>${o.map((x,k)=>`<button data-c=${+x[1]} onclick=qPick(${k})>${x[0]}</button>`).join('')}<div id=fb></div></div>`)}
+function qPick(k){if(QS.ans)return;QS.ans=1;const bs=[...ui.querySelectorAll('button[data-c]')];let good=0;bs.forEach((b,i)=>{if(b.dataset.c=='1')b.classList.add('ok');b.disabled=true;if(i==k&&b.dataset.c=='1')good=1;else if(i==k)b.classList.add('bad')});
+if(good){QS.r++;QS.sc+=10+QS.left}sfx(good);const q=QS.L[QS.i],last=QS.i+1>=QS.L.length;
+$('#fb').innerHTML=`<b>${k<0?'⏱ Убакыт бүттү!':good?'✅ Туура!':'❌ Туура эмес.'}</b> ${q[3]}<br><button onclick=qNext()>${last?'НАТЫЙЖА':'КИЙИНКИ →'}</button>`;lastUI=ui.innerHTML}
+function qNext(){QS.i++;if(QS.i>=QS.L.length){clearInterval(qt);QS.done(QS.r,QS.L.length,QS.sc)}else qShow()}
+function res(t,r,n,sc,xp,extra){mode='quiz';bot(0);P(`<div class=pn><h2>${t}</h2><div class=f>${r} / ${n}</div><div>Упай: <b>${sc}</b> · Тажрыйба: <b>+${xp} XP</b></div>${extra||''}<button onclick="cur&&cur()">⟲ КАЙРА ОЙНОО</button><button onclick=hub()>ОЙНОО РЕЖИМДЕРИ</button><button onclick=menu()>БАШКЫ МЕНЮ</button></div>`)}
+function quiz(){cur=quiz;qStart([...Q].sort(()=>Math.random()-.5),'Викторина',20,(r,n,sc)=>{const xp=r*10+(r==n?50:0);if(r==n)S.perf=1;S.best=Math.max(S.best,sc);gain(xp);res(r==n?'🏆 КЕРЕМЕТ!':r>=n*.7?'👍 Жакшы!':'📚 Дагы машыктан',r,n,sc,xp)})}
+function lvl(i){cur=()=>lvl(i);qStart(Q.slice(2*i,2*i+2),`${i+1}-деңгээл`,Math.max(8,Math.round(26-i*1.8)),(r,n,sc)=>{const pass=i<5?r>=1:r==n;let xp=r*10+i*5;if(pass){if(i==S.lv&&S.lv<10){S.lv++;xp+=30;toast('🔓 Жаңы деңгээл ачылды!')}}gain(xp);res(pass?'✅ Деңгээл өттү!':'❌ Деңгээл өтпөдү',r,n,sc,xp,`<div>${pass?(i==9?'Сиз — эксперт-химиксиз!':'Кийинки деңгээл жеткиликтүү.'):'Өтүү үчүн '+(i<5?'кеминде 1':'бардык')+' туура жооп керек.'}</div><button onclick=levels()>ДЕҢГЭЭЛДЕР</button>`)})}
+function chal(){clr();mode='quiz';bot(0);cur=chal;P(`<div class=pn><h2>ХИМИЯЛЫК ТАПШЫРМАЛАР</h2>${CH.map((c,i)=>`<button onclick=chalGo(${i})>🧩 ${c[0]}</button>`).join('')}<button onclick=hub()>← АРТКА</button></div>`);hud()}
+function chalGo(i){cur=()=>chalGo(i);qStart(CH[i][1],CH[i][0],30,(r,n,sc)=>{const xp=r*15;gain(xp);res('Тапшырма аякталды',r,n,sc,xp)})}
+/* ---------- BUILDER ---------- */
+let bi=0,bo=[];
+function builder(i){clr();mode="builder";cam.userData.z=8;bi=i;cur=()=>builder(i);const m=MB[i];bo=m.b.map(()=>1);paused=false;bot(1);
+P(`<div class=pn><div class=tp><span>⚛️ ${i+1}/3 · ${m.n}</span><span id=bf class=f style="font-size:18px"></span></div><div>Көмүртек (C) жана суутек (H) атомдорунан <b>${m.n}</b> молекуласын куруңуз. Көмүртектердин ортосундагы <b>байланыштарды басып</b>, жөнөкөй ↔ кош кылыңыз. Суутектер автоматтык толтурулат (ар бир C — 4 байланыш). Сүйрөп айландырсаңыз болот.</div><div id=bm></div><button onclick=bchk()>✔ ТЕКШЕРҮҮ</button><button onclick=builder((bi+1)%3)>КИЙИНКИ МОЛЕКУЛА →</button></div>`);bdraw();hud()}
+function bdraw(){const m=MB[bi],g=mol(m.P,m.b.map((b,k)=>[b[0],b[1],bo[k]]),1);setMol(g);$('#bf').textContent=`C${g.userData.C}H${g.userData.H}`}
+function bpick(e){const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1),cam);const h=r.intersectObjects(MG.children[0].children).find(x=>x.object.userData.k!==undefined);if(!h)return;const k=h.object.userData.k,m=MB[bi],old=bo[k];bo[k]=old==1?2:1;
+const v=m.P.map(()=>0);m.b.forEach((b,j)=>{v[b[0]]+=bo[j];v[b[1]]+=bo[j]});if(v.some(x=>x>4)){bo[k]=old;sfx(0);toast('⚠ Көмүртек 4төн ашык байланыш түзө албайт!');return}beep(520,.08);bdraw()}
+function bchk(){const m=MB[bi];if(bo.every((o,k)=>o==m.t[k])){sfx(1);if(!S.bt[bi]){S.bt[bi]=1;gain(25)}$('#bm').innerHTML=`<div style="color:#3dffa8">✅ Туура! <div class=f>${m.f}</div>${m.e}</div>`;lastUI=ui.innerHTML}else{sfx(0);$('#bm').innerHTML=`<div style="color:#ff7799">❌ Азырынча туура эмес. Кеңеш: диендин молекуласында так <b>2 кош байланыш</b> болот (C₄H₆ / C₅H₈). Аталышты кайра окуңуз: «${m.n}» — кош байланыштар кайсы көмүртектерде?</div>`}}
+/* ---------- VIRTUAL LAB ---------- */
+function vlab(){clr();mode='sim';cur=vlab;bot(0);P(`<div class=pn><h2>ВИРТУАЛДЫК ЛАБОРАТОРИЯ</h2><div>Бул — коопсуз визуалдык билим берүү симуляциялары (чыныгы тажрыйба көрсөтмөсү эмес).</div><button onclick=sim(0)>🧪 Суутектин кошулуусу (1,4-кошулуу)</button><button onclick=sim(1)>🔗 Бутадиендин полимерлешүүсү</button><button onclick=sim(2)>🛞 Синтетикалык каучук жана вулканизация</button><button onclick=hub()>← АРТКА</button></div>`);hud()}
+const SI=(t,x)=>{bot(1);P(`<div class=pn><h3>${t}</h3><div id=st>${x}</div><div id=sb></div></div>`)};
+const chain=(n,gap,y=0,x0=0)=>zig(n,1.05).map((p,i)=>[p[0]+Math.floor(i/4)*gap+x0,p[1]+y,0]);
+async function sim(k){clr();mode='sim';const id=Date.now();cur=()=>sim(k);hud();const st=x=>{const e=$('#st');if(e)e.innerHTML=x};
+if(k==0){const p=zig(4);setMol(mol(p,[[0,1,2],[1,2,1],[2,3,2]]));SI('Суутектин кошулуусу','1-кадам: бутадиен-1,3 CH₂=CH–CH=CH₂ жана эки суутек атому (H₂).');cam.userData.z=8;
+const a=ball(new THREE.Vector3(-5,3,0),.25,mH),b=ball(new THREE.Vector3(5,3,0),.25,mH);MG.add(a,b);await wait(1500);st('2-кадам: H атомдору C1 жана C4 көмүртектерине жакындайт (1,4-кошулуу).');
+await Promise.all([tw(a.position,new THREE.Vector3(-3.3,-.5,0),2500),tw(b.position,new THREE.Vector3(3.3,.6,0),2500)]);
+setMol(mol(p,[[0,1,1],[1,2,2],[2,3,1]]));st('3-кадам: <div class=f>CH₂=CH–CH=CH₂ + H₂ → CH₃–CH=CH–CH₃</div>Кош байланыш борбордук C2=C3 абалына жылды. Продукт — бутен-2.')}
+else if(k==1){const p=chain(12,1.2),bd=[],j=[];for(let u=0;u<3;u++){bd.push([4*u,4*u+1,2],[4*u+1,4*u+2,1],[4*u+2,4*u+3,2]);if(u)j.push([4*u-1,4*u,1])}
+MG.scale.setScalar(.62);cam.userData.z=9;setMol(mol(p,bd));SI('Полимерлешүү','1-кадам: бутадиен-1,3төн үч молекуласы (мономер). Реал жашоодо мындай бирдиктер миңдеп кошулат.');await wait(2200);
+st('2-кадам: мономерлер бири-бири менен кошулуп, кош байланыштар ортого жылат.');setMol(mol(chain(12,0),[0,1,2,3,4,5,6,7,8,9,10].map(i=>[i,i+1,i%4==1?2:1])));await tw(MG.scale,new THREE.Vector3(.7,.7,.7),600);await tw(MG.scale,new THREE.Vector3(.62,.62,.62),600);
+st('3-кадам: <div class=f>nCH₂=CH–CH=CH₂ → (–CH₂–CH=CH–CH₂–)ₙ</div>Полимер — бутадиендик синтетикалык каучуктун негизи.')}
+else{const A=chain(6,0,1.7),B=chain(6,0,-1.7),all=[...A,...B],bd=[];for(let c=0;c<2;c++)[1,2,1,1,2].forEach((o,i)=>bd.push([c*6+i,c*6+i+1,o]));
+MG.scale.setScalar(.8);cam.userData.z=9;setMol(mol(all,bd));SI('Каучуктун вулканизациясы','1-кадам: эки полимер чынжыры (каучук). Алар бири-бирине байланышпаган — материал жумшак жана жабышкак.');
+const ss=[0,3].map(i=>ball(new THREE.Vector3(all[i][0],5,0),.3,mS));ss.forEach(s=>MG.add(s));await wait(1800);st('2-кадам: күкүрт (S) атомдору чынжырларды көпүрөчө менен тигет.');
+await Promise.all(ss.map((s,n)=>tw(s.position,new THREE.Vector3(all[[0,3][n]][0],0,0),2200)));
+const g=mol(all,bd,0,{0:1,3:1,6:1,9:1});[0,3].forEach(i=>{g.add(cyl(new THREE.Vector3(...all[i]),new THREE.Vector3(all[i][0],0,0),.08,mS),cyl(new THREE.Vector3(all[i][0],0,0),new THREE.Vector3(...all[i+6]),.08,mS),ball(new THREE.Vector3(all[i][0],0,0),.3,mS))});setMol(g);
+st('3-кадам: тармакталган түзүлүш пайда болду — <b>резина</b>. Ал бышык, ийкемдүү жана ысыкка чыдамдуу.')}
+S.sm[k]=1;if(!S.sm['d'+k]){S.sm['d'+k]=1;gain(20)}else chk();sv();const sb=$('#sb');if(sb)sb.innerHTML='<button onclick="sim('+k+')">⟲ КАЙТАЛОО</button><button onclick=vlab()>БАШКА СИМУЛЯЦИЯ</button>';lastUI=ui.innerHTML}
+/* ---------- LAB WALK ---------- */
+const K={},pl={x:0,z:9,yaw:0,pitch:0};let near=null;
+function lab(){clr();mode='lab';cur=lab;bot(0);paused=false;setMol(mol(zig(4),[[0,1,2],[1,2,1],[2,3,2]]));P(`<div style="position:fixed;bottom:10px;right:10px;font-size:12px;opacity:.7;text-align:right">WASD/жебелер — жүрүү<br>Чычканды сүйрөө — айланууга<br>E — станцияны ачуу</div>`);ui.className='';$('#pad').style.display='grid';hud()}
+addEventListener('keydown',e=>{K[e.key.toLowerCase()]=1;if(e.key.toLowerCase()=='e'&&near&&mode=='lab')near[3]();if(e.key=='Escape'&&mode!='menu')pause()});addEventListener('keyup',e=>K[e.key.toLowerCase()]=0);
+document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;b.onpointerdown=()=>K[k]=1;b.onpointerup=b.onpointerleave=()=>K[k]=0});
+$('#near').onclick=()=>near&&near[3]();
+let dr=0,lx=0,ly=0,mvd=0;R.domElement.addEventListener('pointerdown',e=>{dr=1;lx=e.clientX;ly=e.clientY;mvd=0});
+addEventListener('pointerup',e=>{if(dr&&mvd<6&&mode=='builder'&&!paused)bpick(e);dr=0});
+addEventListener('pointermove',e=>{if(!dr)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;mvd+=Math.abs(dx)+Math.abs(dy);if(mode=='lab'){pl.yaw-=dx*.005;pl.pitch=Math.max(-1,Math.min(1,pl.pitch-dy*.005))}else if(mode=='builder'||mode=='sim')MG.rotation.y+=dx*.01});
+function rs_(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}addEventListener('resize',rs_);rs_();
+/* ---------- LOOP ---------- */
+const clk=new THREE.Clock();let ang=0;
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime;
+if(!paused){for(let i=tws.length-1;i>=0;i--){const w=tws[i];w.t+=dt*1000;const u=Math.min(w.t/w.d,1);w.v.lerpVectors(w.a,w.to,u*u*(3-2*u));if(u>=1){tws.splice(i,1);w.r()}}
+liqs.forEach((l,i)=>l.material.emissiveIntensity=.7+.3*Math.sin(t*2+i));rings.forEach((r,i)=>r.rotation.z=t+i);ring.rotation.set(t*.5,t*.3,0);
+if(mode=='menu'||mode=='quiz'||mode=='lab')MG.rotation.y+=dt*.6;
+if(mode=='lab'){const f=(K.w||K.arrowup?1:0)-(K.s||K.arrowdown?1:0),s=(K.d||K.arrowright?1:0)-(K.a||K.arrowleft?1:0),v=4*dt;pl.x+=(-Math.sin(pl.yaw)*f+Math.cos(pl.yaw)*s)*v;pl.z+=(-Math.cos(pl.yaw)*f-Math.sin(pl.yaw)*s)*v;pl.x=Math.max(-12.5,Math.min(12.5,pl.x));pl.z=Math.max(-11,Math.min(12.5,pl.z));
+cam.position.set(pl.x,1.6,pl.z);cam.rotation.set(pl.pitch,pl.yaw,0,'YXZ');near=ST.find(s=>Math.hypot(s[0]-pl.x,s[1]-pl.z)<2.6)||null;const n=$('#near');n.style.display=near?'block':'none';if(near)n.textContent='▶ '+near[2]+' (E)'}
+else if(mode=='builder'||mode=='sim'){cam.position.set(0,2.2,cam.userData.z||8);cam.lookAt(0,2.2,0)}
+else{ang+=dt*.2;cam.position.set(Math.sin(ang)*11,3.6,Math.cos(ang)*11);cam.lookAt(0,2,0)}}
+R.render(sc,cam)})();
+cam.userData.z=8;menu();room(S.rm);chk();
+</script></body></html>
